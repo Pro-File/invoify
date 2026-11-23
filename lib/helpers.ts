@@ -272,10 +272,23 @@ const formatDate = (
      * it is the one string Date can be relied on to parse back. Only the
      * display is localised.
      */
-    const date = value instanceof Date ? value : new Date(value);
+    let date: Date;
+    const iso = typeof value === "string" && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (iso) {
+        // Plain ISO date: build in local time so no timezone shift occurs.
+        date = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    } else {
+        date = value instanceof Date ? value : new Date(value);
+    }
     if (Number.isNaN(date.getTime())) return fallback;
 
     if (locale.startsWith("az")) return formatAzerbaijaniDate(date);
+
+    if (locale === "de" || locale.startsWith("de-")) {
+        const dd = String(date.getDate()).padStart(2, "0");
+        const mm = String(date.getMonth() + 1).padStart(2, "0");
+        return `${dd}.${mm}.${date.getFullYear()}`;
+    }
 
     try {
         return date.toLocaleDateString(locale, DATE_OPTIONS);

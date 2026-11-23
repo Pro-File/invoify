@@ -47,11 +47,28 @@ async function launchBrowser(): Promise<Browser> {
 
     // Everywhere else — local dev, `next start`, a self-hosted server, CI —
     // use the full `puppeteer` package, which ships its own Chromium.
-    const puppeteer = (await import("puppeteer")).default;
+    try {
+        const puppeteer = (await import("puppeteer")).default;
+        return (await puppeteer.launch({
+            args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            headless: true,
+        })) as unknown as Browser;
+    } catch (error) {
+        // puppeteer's own Chromium was never downloaded (e.g. a sandbox with
+        // skipped postinstall): fall back to the bundled @sparticuz/chromium.
+        console.warn("puppeteer launch failed, using @sparticuz/chromium", error);
+        return launchBundledChromium();
+    }
+}
+
+async function launchBundledChromium(): Promise<Browser> {
+    const chromium = (await import("@sparticuz/chromium")).default;
+    const puppeteer = (await import("puppeteer-core")).default;
     return puppeteer.launch({
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        args: [...chromium.args, "--disable-dev-shm-usage"],
+        executablePath: await chromium.executablePath(),
         headless: true,
-    }) as unknown as Promise<Browser>;
+    });
 }
 
 function isAlive(browser: Browser): boolean {
